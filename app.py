@@ -24,27 +24,31 @@ if "logged_in" not in st.session_state:
     st.session_state.role = None
     st.session_state.display_name = None
 
+# 建立一個容器，用於呈現登入介面
+login_container = st.empty()
+
 # -------------------------
-# 登入介面（若未登入則停在此頁）
+# 登入介面（若未登入則顯示）
 # -------------------------
 if not st.session_state.logged_in:
-    st.title("請登入")
-    account = st.text_input("帳號")
-    password = st.text_input("密碼", type="password")
-    if st.button("登入"):
-        role, display_name = login(account, password)
-        if role:
-            st.session_state.logged_in = True
-            st.session_state.role = role
-            st.session_state.display_name = display_name
-            st.success(f"歡迎 {st.session_state.display_name}！")
-            # 顯示歡迎訊息 1 秒後進入主頁
-            time.sleep(1)
-        else:
-            st.error("帳號或密碼錯誤")
-    # 如果尚未登入，停止後續執行
-    if not st.session_state.logged_in:
-        st.stop()
+    with login_container.container():
+        st.title("請登入")
+        account = st.text_input("帳號")
+        password = st.text_input("密碼", type="password")
+        if st.button("登入"):
+            role, display_name = login(account, password)
+            if role:
+                st.session_state.logged_in = True
+                st.session_state.role = role
+                st.session_state.display_name = display_name
+                st.success(f"歡迎 {st.session_state.display_name}！")
+                # 顯示歡迎訊息 1 秒後自動進入主頁
+                time.sleep(1)
+                # 清除登入介面
+                login_container.empty()
+            else:
+                st.error("帳號或密碼錯誤")
+    st.stop()  # 未登入前停止後續執行
 
 # -------------------------
 # 登入後主要介面
@@ -61,7 +65,6 @@ COLUMNS = ["公司名", "商品名", "年期", "FYC", "獎勵金（文字）", "
 def load_data():
     if os.path.exists(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
-        # 若檔案缺少預期欄位，則重新初始化
         missing_cols = [col for col in COLUMNS if col not in df.columns]
         if missing_cols:
             st.warning(f"資料檔案缺少欄位: {missing_cols}，將重新初始化資料。")
@@ -96,7 +99,6 @@ if st.session_state.role == "管理者":
         競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], key="add_競賽計入")
         if st.button("新增商品", key="add_button"):
             if 公司名 and 商品名:
-                # 檢查是否已存在相同公司名、商品名及年期的組合
                 if ((df["公司名"] == 公司名) & (df["商品名"] == 商品名) & (df["年期"] == 年期)).any():
                     st.error("該公司名、商品名與年期的組合已存在，請使用不同的資料。")
                 else:
@@ -120,7 +122,6 @@ if st.session_state.role == "管理者":
         if df.empty:
             st.warning("目前沒有資料可以修改。")
         else:
-            # 利用臨時 key 供選擇使用，但不存入 CSV
             df_temp = df.copy()
             df_temp['key'] = df_temp["公司名"] + " - " + df_temp["商品名"] + " - " + df_temp["年期"].astype(str)
             selected_key = st.selectbox("選擇要修改的項目", df_temp["key"].tolist(), key="modify_select")
@@ -135,7 +136,6 @@ if st.session_state.role == "管理者":
             default_index = 0 if product["競賽計入"] == "計入" else 1
             new_競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], index=default_index, key="modify_競賽計入")
             if st.button("儲存修改", key="modify_button"):
-                # 將修改結果寫回原 df（使用原始索引）
                 orig_idx = df.index[(df["公司名"] == product["公司名"]) & (df["商品名"] == product["商品名"]) & (df["年期"] == product["年期"])][0]
                 df.at[orig_idx, "公司名"] = new_公司名
                 df.at[orig_idx, "商品名"] = new_商品名
@@ -167,11 +167,10 @@ if st.session_state.role == "管理者":
             st.info("目前沒有任何商品資料。")
         else:
             df_display = df.copy()
-            # 若不慎存在臨時 key 欄位，則先移除
             if "key" in df_display.columns:
                 df_display = df_display.drop(columns=["key"])
             df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-            st.dataframe(df_display)  # 內建支援表頭排序
+            st.dataframe(df_display)
 
 else:
     # 使用者角色：僅能檢視資料
