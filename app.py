@@ -4,7 +4,7 @@ import os
 
 # 定義 CSV 檔案儲存路徑與正確欄位
 DATA_FILE = 'insurance_products.csv'
-COLUMNS = ["公司名", "商品名", "年期", "FYC（%）", "獎勵金（文字）", "競賽計入"]
+COLUMNS = ["公司名", "商品名", "年期", "來佣率", "獎勵金（文字）", "競賽計入"]
 
 # 載入資料，並檢查欄位是否完整
 def load_data():
@@ -41,7 +41,7 @@ if choice == "新增":
     公司名 = st.text_input("公司名")
     商品名 = st.text_input("商品名")
     年期 = st.number_input("年期", min_value=1, step=1)
-    FYC = st.number_input("FYC（%）", min_value=0.0, step=0.1)
+    來佣率 = st.number_input("來佣率", min_value=0.0, step=0.1)
     獎勵金 = st.text_area("獎勵金（文字）")
     競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"])
     
@@ -55,11 +55,12 @@ if choice == "新增":
                     "公司名": 公司名,
                     "商品名": 商品名,
                     "年期": 年期,
-                    "FYC（%）": FYC,
+                    "來佣率": 來佣率,
                     "獎勵金（文字）": 獎勵金,
                     "競賽計入": 競賽計入
                 }
-                df = df.append(new_data, ignore_index=True)
+                # 用 pd.concat 替代 df.append
+                df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
                 save_data(df)
                 st.success("成功新增商品資料！")
         else:
@@ -70,7 +71,7 @@ elif choice == "修改":
     if df.empty:
         st.warning("目前沒有資料可以修改。")
     else:
-        # 為了方便識別，先建立一個組合欄位（公司名 - 商品名）
+        # 建立一個組合欄位（公司名 - 商品名）作為識別 key
         df['key'] = df["公司名"] + " - " + df["商品名"]
         selected_key = st.selectbox("選擇要修改的項目", df["key"].tolist())
         idx = df.index[df['key'] == selected_key][0]
@@ -79,7 +80,7 @@ elif choice == "修改":
         公司名 = st.text_input("公司名", value=product["公司名"])
         商品名 = st.text_input("商品名", value=product["商品名"])
         年期 = st.number_input("年期", min_value=1, step=1, value=int(product["年期"]))
-        FYC = st.number_input("FYC（%）", min_value=0.0, step=0.1, value=float(product["FYC（%）"]))
+        來佣率 = st.number_input("來佣率", min_value=0.0, step=0.1, value=float(product["來佣率"]))
         獎勵金 = st.text_area("獎勵金（文字）", value=product["獎勵金（文字）"])
         default_index = 0 if product["競賽計入"] == "計入" else 1
         競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], index=default_index)
@@ -88,7 +89,7 @@ elif choice == "修改":
             df.at[idx, "公司名"] = 公司名
             df.at[idx, "商品名"] = 商品名
             df.at[idx, "年期"] = 年期
-            df.at[idx, "FYC（%）"] = FYC
+            df.at[idx, "來佣率"] = 來佣率
             df.at[idx, "獎勵金（文字）"] = 獎勵金
             df.at[idx, "競賽計入"] = 競賽計入
             df = df.drop(columns=["key"])
