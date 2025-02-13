@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import time
 
 # -------------------------
 # 從 Streamlit Secrets 讀取帳號與權限設定
@@ -20,6 +19,7 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.role = None
     st.session_state.display_name = None
+    st.session_state.login_success = False  # 新增登入成功狀態
 
 # -------------------------
 # 登入介面（若未登入則顯示）
@@ -37,11 +37,18 @@ if not st.session_state.logged_in:
                 st.session_state.role = role
                 st.session_state.display_name = display_name
                 st.success(f"歡迎 {st.session_state.display_name}！")
-                time.sleep(1)
-                st.experimental_rerun()  # 重新執行以更新頁面
+                st.session_state.login_success = True  # 標記登入成功
             else:
                 st.error("帳號或密碼錯誤")
-    st.stop()
+    
+    # 若登入成功，觸發頁面更新
+    if st.session_state.get("login_success", False):
+        st.session_state.login_success = False  # 重置狀態
+        st.experimental_rerun()  # 重新執行以更新頁面
+    
+    # 若尚未登入完成，停止後續顯示
+    if not st.session_state.logged_in:
+        st.stop()
 
 # -------------------------
 # 資料處理函式
