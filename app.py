@@ -4,7 +4,7 @@ import os
 
 # 定義 CSV 檔案儲存路徑與正確欄位
 DATA_FILE = 'insurance_products.csv'
-COLUMNS = ["公司名", "商品名", "年期", "來佣率%", "獎勵金（文字）", "競賽計入"]
+COLUMNS = ["公司名", "商品名", "年期", "FYC", "獎勵金（文字）", "競賽計入"]
 
 # 載入資料，並檢查欄位是否完整
 def load_data():
@@ -41,7 +41,8 @@ if choice == "新增":
     公司名 = st.text_input("公司名")
     商品名 = st.text_input("商品名")
     年期 = st.number_input("年期", min_value=1, step=1)
-    來佣率 = st.number_input("來佣率%", min_value=0.0, step=0.1)
+    # 使用者看到的標籤為 FYC (%)
+    FYC_value = st.number_input("FYC (%)", min_value=0.0, step=0.1)
     獎勵金 = st.text_area("獎勵金（文字）")
     競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"])
     
@@ -55,11 +56,11 @@ if choice == "新增":
                     "公司名": 公司名,
                     "商品名": 商品名,
                     "年期": 年期,
-                    "來佣率%": 來佣率,
+                    "FYC": FYC_value,
                     "獎勵金（文字）": 獎勵金,
                     "競賽計入": 競賽計入
                 }
-                # 使用 pd.concat 替代 df.append
+                # 使用 pd.concat 替代 df.append（適用於 pandas 2.0 以上）
                 df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
                 save_data(df)
                 st.success("成功新增商品資料！")
@@ -80,7 +81,7 @@ elif choice == "修改":
         公司名 = st.text_input("公司名", value=product["公司名"])
         商品名 = st.text_input("商品名", value=product["商品名"])
         年期 = st.number_input("年期", min_value=1, step=1, value=int(product["年期"]))
-        來佣率 = st.number_input("來佣率%", min_value=0.0, step=0.1, value=float(product["來佣率%"]))
+        FYC_value = st.number_input("FYC (%)", min_value=0.0, step=0.1, value=float(product["FYC"]))
         獎勵金 = st.text_area("獎勵金（文字）", value=product["獎勵金（文字）"])
         default_index = 0 if product["競賽計入"] == "計入" else 1
         競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], index=default_index)
@@ -89,7 +90,7 @@ elif choice == "修改":
             df.at[idx, "公司名"] = 公司名
             df.at[idx, "商品名"] = 商品名
             df.at[idx, "年期"] = 年期
-            df.at[idx, "來佣率%"] = 來佣率
+            df.at[idx, "FYC"] = FYC_value
             df.at[idx, "獎勵金（文字）"] = 獎勵金
             df.at[idx, "競賽計入"] = 競賽計入
             df = df.drop(columns=["key"])
@@ -114,4 +115,7 @@ elif choice == "查看所有":
     if df.empty:
         st.info("目前沒有任何商品資料。")
     else:
-        st.dataframe(df)
+        # 建立一個複製，並將 FYC 欄位格式化，顯示百分比
+        df_display = df.copy()
+        df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
+        st.dataframe(df_display)
