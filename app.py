@@ -3,27 +3,29 @@ import pandas as pd
 import os
 
 # -------------------------
-# 使用者與權限設定
+# 從 Streamlit Secrets 讀取帳號與權限設定
 # -------------------------
-# 內建帳號資料，您可根據需求擴充或修改
-users = {
-    "admin": {"password": "admin123", "role": "管理者"},
-    "user": {"password": "user123", "role": "使用者"}
-}
+# secrets 中應該設定 credentials 為一個字典，格式如下：
+# [credentials]
+# admin = { password = "admin123", role = "管理者" }
+# user = { password = "user123", role = "使用者" }
+#
+# 請務必在 Streamlit Cloud 的 Secrets 管理介面中設定，或在本地建立 .streamlit/secrets.toml
+users = st.secrets["credentials"]
 
 def login(username, password):
-    if username in users and users[username]["password"] == password:
+    if username in users and password == users[username]["password"]:
         return users[username]["role"]
     else:
         return None
 
-# 初始化 session_state
+# 初始化 session_state 登入狀態
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.role = None
 
 # -------------------------
-# 登入介面（若未登入則停在此頁）
+# 登入介面（未登入時停留在此頁）
 # -------------------------
 if not st.session_state.logged_in:
     st.title("請登入")
@@ -37,7 +39,7 @@ if not st.session_state.logged_in:
             st.success(f"登入成功！歡迎 {username} ({role})")
         else:
             st.error("使用者名稱或密碼錯誤")
-    st.stop()  # 停止後續執行，直到登入完成
+    st.stop()  # 未登入前不執行後續程式
 
 # -------------------------
 # 登入後主要介面
@@ -70,10 +72,11 @@ def save_data(df):
 df = load_data()
 
 # -------------------------
-# 根據權限決定頁面功能
+# 根據權限自動呈現頁面內容
 # -------------------------
+# 管理者功能：新增、修改、刪除、檢視（利用 tabs 分區）
+# 使用者功能：僅能檢視資料（可點表頭排序）
 if st.session_state.role == "管理者":
-    # 管理者可使用 tabs 區分各功能
     tabs = st.tabs(["新增", "修改", "刪除", "查看"])
     
     # --- 新增資料 ---
@@ -157,10 +160,10 @@ if st.session_state.role == "管理者":
         else:
             df_display = df.copy()
             df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-            st.dataframe(df_display)  # st.dataframe 支援點選表頭排序
+            st.dataframe(df_display)  # 內建互動排序
 
 else:
-    # 若使用者角色，僅顯示「檢視資料」區塊
+    # 使用者角色：僅能檢視資料
     st.subheader("所有保險商品資料")
     if df.empty:
         st.info("目前沒有任何商品資料。")
