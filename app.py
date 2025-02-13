@@ -49,7 +49,7 @@ if not st.session_state.logged_in:
 DATA_FILE = 'insurance_products.csv'
 COLUMNS = ["公司名", "商品名", "年期", "FYC", "獎勵金（文字）", "競賽計入"]
 
-@st.cache
+@st.cache_data  # 使用 st.cache_data 替代 st.cache
 def load_data():
     if os.path.exists(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
