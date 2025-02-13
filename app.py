@@ -6,17 +6,12 @@ import time
 # -------------------------
 # 從 Streamlit Secrets 讀取帳號與權限設定
 # -------------------------
-# 請在 .streamlit/secrets.toml 或 Streamlit Cloud 的 Secrets 管理介面中設定，例如：
-# [credentials]
-# admin = { password = "admin123", role = "管理者", display_name = "Admin Name" }
-# user = { password = "user123", role = "使用者", display_name = "User Name" }
 users = st.secrets["credentials"]
 
 def login(account, password):
     if account in users and password == users[account]["password"]:
         return users[account]["role"], users[account].get("display_name", account)
-    else:
-        return None, None
+    return None, None
 
 # -------------------------
 # 初始化 session_state
@@ -42,19 +37,11 @@ if not st.session_state.logged_in:
                 st.session_state.role = role
                 st.session_state.display_name = display_name
                 st.success(f"歡迎 {st.session_state.display_name}！")
-                # 稍作等待後讓頁面更新
                 time.sleep(1)
+                st.experimental_rerun()  # 重新執行以更新頁面
             else:
                 st.error("帳號或密碼錯誤")
-    # 若尚未登入完成，停止後續顯示
-    if not st.session_state.logged_in:
-        st.stop()
-
-# -------------------------
-# 登入後主要介面
-# -------------------------
-st.title("保險商品管理系統")
-st.write(f"目前登入角色：{st.session_state.role}")
+    st.stop()
 
 # -------------------------
 # 資料處理函式
@@ -62,6 +49,7 @@ st.write(f"目前登入角色：{st.session_state.role}")
 DATA_FILE = 'insurance_products.csv'
 COLUMNS = ["公司名", "商品名", "年期", "FYC", "獎勵金（文字）", "競賽計入"]
 
+@st.cache
 def load_data():
     if os.path.exists(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
@@ -81,10 +69,21 @@ def save_data(df):
 df = load_data()
 
 # -------------------------
+# 顯示資料的函式
+# -------------------------
+def display_data(df):
+    df_display = df.copy()
+    if "key" in df_display.columns:
+        df_display = df_display.drop(columns=["key"])
+    df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
+    st.dataframe(df_display)
+
+# -------------------------
 # 根據權限呈現頁面內容
 # -------------------------
-# 管理者：使用 tabs 分區呈現「新增」、「修改」、「刪除」、「查看」
-# 使用者：僅能檢視資料（支援表頭排序）
+st.title("保險商品管理系統")
+st.write(f"目前登入角色：{st.session_state.role}")
+
 if st.session_state.role == "管理者":
     tabs = st.tabs(["新增", "修改", "刪除", "查看"])
     
@@ -99,7 +98,6 @@ if st.session_state.role == "管理者":
         競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], key="add_競賽計入")
         if st.button("新增商品", key="add_button"):
             if 公司名 and 商品名:
-                # 檢查是否已存在相同公司名、商品名及年期的組合
                 if ((df["公司名"] == 公司名) & (df["商品名"] == 商品名) & (df["年期"] == 年期)).any():
                     st.error("該公司名、商品名與年期的組合已存在，請使用不同的資料。")
                 else:
@@ -169,11 +167,7 @@ if st.session_state.role == "管理者":
         if df.empty:
             st.info("目前沒有任何商品資料。")
         else:
-            df_display = df.copy()
-            if "key" in df_display.columns:
-                df_display = df_display.drop(columns=["key"])
-            df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-            st.dataframe(df_display)
+            display_data(df)
 
 else:
     # 使用者角色：僅能檢視資料
@@ -181,8 +175,4 @@ else:
     if df.empty:
         st.info("目前沒有任何商品資料。")
     else:
-        df_display = df.copy()
-        if "key" in df_display.columns:
-            df_display = df_display.drop(columns=["key"])
-        df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-        st.dataframe(df_display)
+        display_data(df)
