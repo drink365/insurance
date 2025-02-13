@@ -40,7 +40,10 @@ if not st.session_state.logged_in:
             st.success(f"歡迎 {st.session_state.display_name}！")
             # 顯示歡迎訊息 1 秒後自動帶出主頁
             time.sleep(1)
-            st.experimental_rerun()
+            try:
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"自動刷新頁面時發生錯誤，請手動刷新。錯誤訊息：{e}")
         else:
             st.error("帳號或密碼錯誤")
     st.stop()  # 未登入前停止後續執行
@@ -163,7 +166,7 @@ if st.session_state.role == "管理者":
         else:
             df_display = df.copy()
             df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-            st.dataframe(df_display)  # st.dataframe 內建支援表頭排序
+            st.dataframe(df_display)  # 內建支援表頭排序
 
 else:
     # 使用者角色：僅能檢視資料
