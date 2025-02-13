@@ -4,7 +4,7 @@ import os
 
 # 定義 CSV 檔案儲存路徑與正確欄位
 DATA_FILE = 'insurance_products.csv'
-COLUMNS = ["公司名", "商品名", "年期", "來佣率", "獎勵金（文字）", "競賽計入"]
+COLUMNS = ["公司名", "商品名", "年期", "來佣率%", "獎勵金（文字）", "競賽計入"]
 
 # 載入資料，並檢查欄位是否完整
 def load_data():
@@ -41,25 +41,25 @@ if choice == "新增":
     公司名 = st.text_input("公司名")
     商品名 = st.text_input("商品名")
     年期 = st.number_input("年期", min_value=1, step=1)
-    來佣率 = st.number_input("來佣率", min_value=0.0, step=0.1)
+    來佣率 = st.number_input("來佣率%", min_value=0.0, step=0.1)
     獎勵金 = st.text_area("獎勵金（文字）")
     競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"])
     
     if st.button("新增商品"):
         if 公司名 and 商品名:
-            # 檢查是否已存在相同的公司名與商品名組合
-            if ((df["公司名"] == 公司名) & (df["商品名"] == 商品名)).any():
-                st.error("該公司名與商品名的組合已存在，請使用不同的資料。")
+            # 檢查是否已存在相同的 公司名、商品名 與 年期 組合
+            if ((df["公司名"] == 公司名) & (df["商品名"] == 商品名) & (df["年期"] == 年期)).any():
+                st.error("該公司名、商品名與年期的組合已存在，請使用不同的資料。")
             else:
                 new_data = {
                     "公司名": 公司名,
                     "商品名": 商品名,
                     "年期": 年期,
-                    "來佣率": 來佣率,
+                    "來佣率%": 來佣率,
                     "獎勵金（文字）": 獎勵金,
                     "競賽計入": 競賽計入
                 }
-                # 用 pd.concat 替代 df.append
+                # 使用 pd.concat 替代 df.append
                 df = pd.concat([df, pd.DataFrame(new_data, index=[0])], ignore_index=True)
                 save_data(df)
                 st.success("成功新增商品資料！")
@@ -71,8 +71,8 @@ elif choice == "修改":
     if df.empty:
         st.warning("目前沒有資料可以修改。")
     else:
-        # 建立一個組合欄位（公司名 - 商品名）作為識別 key
-        df['key'] = df["公司名"] + " - " + df["商品名"]
+        # 建立唯一識別 key，包含 公司名、商品名 與 年期
+        df['key'] = df["公司名"] + " - " + df["商品名"] + " - " + df["年期"].astype(str)
         selected_key = st.selectbox("選擇要修改的項目", df["key"].tolist())
         idx = df.index[df['key'] == selected_key][0]
         product = df.loc[idx]
@@ -80,7 +80,7 @@ elif choice == "修改":
         公司名 = st.text_input("公司名", value=product["公司名"])
         商品名 = st.text_input("商品名", value=product["商品名"])
         年期 = st.number_input("年期", min_value=1, step=1, value=int(product["年期"]))
-        來佣率 = st.number_input("來佣率", min_value=0.0, step=0.1, value=float(product["來佣率"]))
+        來佣率 = st.number_input("來佣率%", min_value=0.0, step=0.1, value=float(product["來佣率%"]))
         獎勵金 = st.text_area("獎勵金（文字）", value=product["獎勵金（文字）"])
         default_index = 0 if product["競賽計入"] == "計入" else 1
         競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], index=default_index)
@@ -89,7 +89,7 @@ elif choice == "修改":
             df.at[idx, "公司名"] = 公司名
             df.at[idx, "商品名"] = 商品名
             df.at[idx, "年期"] = 年期
-            df.at[idx, "來佣率"] = 來佣率
+            df.at[idx, "來佣率%"] = 來佣率
             df.at[idx, "獎勵金（文字）"] = 獎勵金
             df.at[idx, "競賽計入"] = 競賽計入
             df = df.drop(columns=["key"])
@@ -101,7 +101,7 @@ elif choice == "刪除":
     if df.empty:
         st.warning("目前沒有資料可以刪除。")
     else:
-        df['key'] = df["公司名"] + " - " + df["商品名"]
+        df['key'] = df["公司名"] + " - " + df["商品名"] + " - " + df["年期"].astype(str)
         selected_key = st.selectbox("選擇要刪除的項目", df["key"].tolist())
         if st.button("刪除資料"):
             df = df[df['key'] != selected_key]
