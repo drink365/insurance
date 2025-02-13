@@ -27,21 +27,28 @@ def save_data(df):
 
 # Streamlit 介面標題與說明
 st.title("保險商品管理系統")
-st.write("請利用側邊選單來選擇操作功能：新增、修改、刪除或檢視所有商品資料。")
+st.write("根據您的權限，操作功能有所不同。")
+
+# 權限選擇：管理者可編輯，使用者僅檢視
+role = st.sidebar.selectbox("請選擇權限", ["管理者", "使用者"])
 
 # 載入現有資料
 df = load_data()
 
-# 側邊選單
-menu = ["新增", "修改", "刪除", "查看所有"]
-choice = st.sidebar.selectbox("選擇操作", menu)
+# 管理者可操作的選單
+if role == "管理者":
+    menu = ["新增", "修改", "刪除", "查看所有"]
+    choice = st.sidebar.selectbox("選擇操作", menu)
+else:
+    # 使用者僅能檢視資料
+    choice = "查看所有"
 
 if choice == "新增":
     st.subheader("新增保險商品資料")
     公司名 = st.text_input("公司名")
     商品名 = st.text_input("商品名")
     年期 = st.number_input("年期", min_value=1, step=1)
-    # 使用者看到的標籤為 FYC (%)
+    # 使用者看到的標籤為 FYC (%)，但儲存時欄位名稱為 FYC
     FYC_value = st.number_input("FYC (%)", min_value=0.0, step=0.1)
     獎勵金 = st.text_area("獎勵金（文字）")
     競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"])
@@ -115,7 +122,7 @@ elif choice == "查看所有":
     if df.empty:
         st.info("目前沒有任何商品資料。")
     else:
-        # 建立一個複製，並將 FYC 欄位格式化，顯示百分比
+        # 複製一份資料，並格式化 FYC 欄位顯示百分比
         df_display = df.copy()
         df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-        st.dataframe(df_display)
+        st.dataframe(df_display)  # st.dataframe 本身支援點擊表頭排序
