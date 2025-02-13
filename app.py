@@ -1,45 +1,51 @@
 import streamlit as st
 import pandas as pd
 import os
+import time
 
 # -------------------------
 # 從 Streamlit Secrets 讀取帳號與權限設定
 # -------------------------
-# secrets 中應該設定 credentials 為一個字典，格式如下：
+# secrets.toml 內容範例：
 # [credentials]
 # admin = { password = "admin123", role = "管理者" }
 # user = { password = "user123", role = "使用者" }
-#
-# 請務必在 Streamlit Cloud 的 Secrets 管理介面中設定，或在本地建立 .streamlit/secrets.toml
 users = st.secrets["credentials"]
 
-def login(username, password):
-    if username in users and password == users[username]["password"]:
-        return users[username]["role"]
+def login(account, password):
+    if account in users and password == users[account]["password"]:
+        return users[account]["role"]
     else:
         return None
 
-# 初始化 session_state 登入狀態
+# 初始化 session_state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.role = None
+    st.session_state.display_name = None
+    st.session_state.welcome_shown = False
 
 # -------------------------
-# 登入介面（未登入時停留在此頁）
+# 登入介面（若未登入則停在此頁）
 # -------------------------
 if not st.session_state.logged_in:
     st.title("請登入")
-    username = st.text_input("使用者名稱")
+    account = st.text_input("帳號")
+    display_name = st.text_input("用戶名稱")  # 用戶名稱用於歡迎訊息
     password = st.text_input("密碼", type="password")
     if st.button("登入"):
-        role = login(username, password)
+        role = login(account, password)
         if role:
             st.session_state.logged_in = True
             st.session_state.role = role
-            st.success(f"登入成功！歡迎 {username} ({role})")
+            st.session_state.display_name = display_name if display_name else account
+            st.success(f"歡迎 {st.session_state.display_name}！")
+            # 顯示歡迎訊息 1 秒後自動帶出主頁
+            time.sleep(1)
+            st.experimental_rerun()
         else:
-            st.error("使用者名稱或密碼錯誤")
-    st.stop()  # 未登入前不執行後續程式
+            st.error("帳號或密碼錯誤")
+    st.stop()  # 未登入前停止後續執行
 
 # -------------------------
 # 登入後主要介面
@@ -74,8 +80,8 @@ df = load_data()
 # -------------------------
 # 根據權限自動呈現頁面內容
 # -------------------------
-# 管理者功能：新增、修改、刪除、檢視（利用 tabs 分區）
-# 使用者功能：僅能檢視資料（可點表頭排序）
+# 管理者功能：利用 tabs 分區呈現「新增」、「修改」、「刪除」、「查看」
+# 使用者功能：僅能檢視資料（並可點表頭排序）
 if st.session_state.role == "管理者":
     tabs = st.tabs(["新增", "修改", "刪除", "查看"])
     
@@ -114,7 +120,6 @@ if st.session_state.role == "管理者":
         if df.empty:
             st.warning("目前沒有資料可以修改。")
         else:
-            # 建立唯一識別 key，格式： 公司名 - 商品名 - 年期
             df['key'] = df["公司名"] + " - " + df["商品名"] + " - " + df["年期"].astype(str)
             selected_key = st.selectbox("選擇要修改的項目", df["key"].tolist(), key="modify_select")
             idx = df.index[df['key'] == selected_key][0]
@@ -160,7 +165,7 @@ if st.session_state.role == "管理者":
         else:
             df_display = df.copy()
             df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-            st.dataframe(df_display)  # 內建互動排序
+            st.dataframe(df_display)  # 內建支援表頭排序
 
 else:
     # 使用者角色：僅能檢視資料
