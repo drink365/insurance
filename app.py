@@ -2,15 +2,22 @@ import streamlit as st
 import pandas as pd
 import os
 
-# 定義 CSV 檔案儲存路徑
+# 定義 CSV 檔案儲存路徑與正確欄位
 DATA_FILE = 'insurance_products.csv'
+COLUMNS = ["公司名", "商品名", "年期", "FYC（%）", "獎勵金（文字）", "競賽計入"]
 
-# 載入資料，如果檔案不存在則建立空的 DataFrame 並初始化欄位
+# 載入資料，並檢查欄位是否完整
 def load_data():
     if os.path.exists(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
+        # 檢查 CSV 中是否有缺少預期欄位
+        missing_cols = [col for col in COLUMNS if col not in df.columns]
+        if missing_cols:
+            st.warning(f"資料檔案缺少欄位: {missing_cols}，將重新初始化資料。")
+            df = pd.DataFrame(columns=COLUMNS)
+            df.to_csv(DATA_FILE, index=False)
     else:
-        df = pd.DataFrame(columns=["公司名", "商品名", "年期", "FYC（%）", "獎勵金（文字）", "競賽計入"])
+        df = pd.DataFrame(columns=COLUMNS)
         df.to_csv(DATA_FILE, index=False)
     return df
 
@@ -74,7 +81,6 @@ elif choice == "修改":
         年期 = st.number_input("年期", min_value=1, step=1, value=int(product["年期"]))
         FYC = st.number_input("FYC（%）", min_value=0.0, step=0.1, value=float(product["FYC（%）"]))
         獎勵金 = st.text_area("獎勵金（文字）", value=product["獎勵金（文字）"])
-        # 根據原始資料選定預設選項
         default_index = 0 if product["競賽計入"] == "計入" else 1
         競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], index=default_index)
         
@@ -85,7 +91,6 @@ elif choice == "修改":
             df.at[idx, "FYC（%）"] = FYC
             df.at[idx, "獎勵金（文字）"] = 獎勵金
             df.at[idx, "競賽計入"] = 競賽計入
-            # 刪除輔助欄位
             df = df.drop(columns=["key"])
             save_data(df)
             st.success("成功修改商品資料！")
