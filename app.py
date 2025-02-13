@@ -6,24 +6,23 @@ import time
 # -------------------------
 # 從 Streamlit Secrets 讀取帳號與權限設定
 # -------------------------
-# secrets.toml 內容範例：
+# 請在 .streamlit/secrets.toml 或 Streamlit Cloud 的 Secrets 管理介面中設定，例如：
 # [credentials]
-# admin = { password = "admin123", role = "管理者" }
-# user = { password = "user123", role = "使用者" }
+# admin = { password = "admin123", role = "管理者", display_name = "Admin Name" }
+# user = { password = "user123", role = "使用者", display_name = "User Name" }
 users = st.secrets["credentials"]
 
 def login(account, password):
     if account in users and password == users[account]["password"]:
-        return users[account]["role"]
+        return users[account]["role"], users[account].get("display_name", account)
     else:
-        return None
+        return None, None
 
 # 初始化 session_state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.role = None
     st.session_state.display_name = None
-    st.session_state.welcome_shown = False
 
 # -------------------------
 # 登入介面（若未登入則停在此頁）
@@ -31,14 +30,13 @@ if "logged_in" not in st.session_state:
 if not st.session_state.logged_in:
     st.title("請登入")
     account = st.text_input("帳號")
-    display_name = st.text_input("用戶名稱")  # 用戶名稱用於歡迎訊息
     password = st.text_input("密碼", type="password")
     if st.button("登入"):
-        role = login(account, password)
+        role, display_name = login(account, password)
         if role:
             st.session_state.logged_in = True
             st.session_state.role = role
-            st.session_state.display_name = display_name if display_name else account
+            st.session_state.display_name = display_name
             st.success(f"歡迎 {st.session_state.display_name}！")
             # 顯示歡迎訊息 1 秒後自動帶出主頁
             time.sleep(1)
@@ -165,7 +163,7 @@ if st.session_state.role == "管理者":
         else:
             df_display = df.copy()
             df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
-            st.dataframe(df_display)  # 內建支援表頭排序
+            st.dataframe(df_display)  # st.dataframe 內建支援表頭排序
 
 else:
     # 使用者角色：僅能檢視資料
