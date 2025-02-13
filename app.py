@@ -38,15 +38,13 @@ if not st.session_state.logged_in:
             st.session_state.role = role
             st.session_state.display_name = display_name
             st.success(f"歡迎 {st.session_state.display_name}！")
-            # 顯示歡迎訊息 1 秒後自動帶出主頁
+            # 顯示歡迎訊息 1 秒後進入主頁
             time.sleep(1)
-            try:
-                st.experimental_rerun()
-            except Exception as e:
-                st.error(f"自動刷新頁面時發生錯誤，請手動刷新。錯誤訊息：{e}")
         else:
             st.error("帳號或密碼錯誤")
-    st.stop()  # 未登入前停止後續執行
+    # 如果尚未登入，停止後續執行
+    if not st.session_state.logged_in:
+        st.stop()
 
 # -------------------------
 # 登入後主要介面
@@ -63,6 +61,7 @@ COLUMNS = ["公司名", "商品名", "年期", "FYC", "獎勵金（文字）", "
 def load_data():
     if os.path.exists(DATA_FILE):
         df = pd.read_csv(DATA_FILE)
+        # 若檔案缺少預期欄位，則重新初始化
         missing_cols = [col for col in COLUMNS if col not in df.columns]
         if missing_cols:
             st.warning(f"資料檔案缺少欄位: {missing_cols}，將重新初始化資料。")
@@ -81,8 +80,8 @@ df = load_data()
 # -------------------------
 # 根據權限自動呈現頁面內容
 # -------------------------
-# 管理者功能：利用 tabs 分區呈現「新增」、「修改」、「刪除」、「查看」
-# 使用者功能：僅能檢視資料（並可點表頭排序）
+# 管理者：使用 tabs 分區呈現「新增」、「修改」、「刪除」、「查看」
+# 使用者：僅能檢視資料（並可點表頭排序）
 if st.session_state.role == "管理者":
     tabs = st.tabs(["新增", "修改", "刪除", "查看"])
     
@@ -121,10 +120,12 @@ if st.session_state.role == "管理者":
         if df.empty:
             st.warning("目前沒有資料可以修改。")
         else:
-            df['key'] = df["公司名"] + " - " + df["商品名"] + " - " + df["年期"].astype(str)
-            selected_key = st.selectbox("選擇要修改的項目", df["key"].tolist(), key="modify_select")
-            idx = df.index[df['key'] == selected_key][0]
-            product = df.loc[idx]
+            # 利用臨時 key 供選擇使用，但不存入 CSV
+            df_temp = df.copy()
+            df_temp['key'] = df_temp["公司名"] + " - " + df_temp["商品名"] + " - " + df_temp["年期"].astype(str)
+            selected_key = st.selectbox("選擇要修改的項目", df_temp["key"].tolist(), key="modify_select")
+            idx = df_temp.index[df_temp['key'] == selected_key][0]
+            product = df_temp.loc[idx]
             
             new_公司名 = st.text_input("公司名", value=product["公司名"], key="modify_公司名")
             new_商品名 = st.text_input("商品名", value=product["商品名"], key="modify_商品名")
@@ -134,13 +135,14 @@ if st.session_state.role == "管理者":
             default_index = 0 if product["競賽計入"] == "計入" else 1
             new_競賽計入 = st.selectbox("競賽計入", ["計入", "不計入"], index=default_index, key="modify_競賽計入")
             if st.button("儲存修改", key="modify_button"):
-                df.at[idx, "公司名"] = new_公司名
-                df.at[idx, "商品名"] = new_商品名
-                df.at[idx, "年期"] = new_年期
-                df.at[idx, "FYC"] = new_FYC
-                df.at[idx, "獎勵金（文字）"] = new_獎勵金
-                df.at[idx, "競賽計入"] = new_競賽計入
-                df = df.drop(columns=["key"])
+                # 將修改結果寫回原 df（使用原始索引）
+                orig_idx = df.index[(df["公司名"] == product["公司名"]) & (df["商品名"] == product["商品名"]) & (df["年期"] == product["年期"])][0]
+                df.at[orig_idx, "公司名"] = new_公司名
+                df.at[orig_idx, "商品名"] = new_商品名
+                df.at[orig_idx, "年期"] = new_年期
+                df.at[orig_idx, "FYC"] = new_FYC
+                df.at[orig_idx, "獎勵金（文字）"] = new_獎勵金
+                df.at[orig_idx, "競賽計入"] = new_競賽計入
                 save_data(df)
                 st.success("成功修改商品資料！")
     
@@ -150,11 +152,11 @@ if st.session_state.role == "管理者":
         if df.empty:
             st.warning("目前沒有資料可以刪除。")
         else:
-            df['key'] = df["公司名"] + " - " + df["商品名"] + " - " + df["年期"].astype(str)
-            selected_key_del = st.selectbox("選擇要刪除的項目", df["key"].tolist(), key="delete_select")
+            df_temp = df.copy()
+            df_temp['key'] = df_temp["公司名"] + " - " + df_temp["商品名"] + " - " + df_temp["年期"].astype(str)
+            selected_key_del = st.selectbox("選擇要刪除的項目", df_temp["key"].tolist(), key="delete_select")
             if st.button("刪除資料", key="delete_button"):
-                df = df[df['key'] != selected_key_del]
-                df = df.drop(columns=["key"])
+                df = df[df_temp['key'] != selected_key_del]
                 save_data(df)
                 st.success("成功刪除資料！")
     
@@ -165,6 +167,9 @@ if st.session_state.role == "管理者":
             st.info("目前沒有任何商品資料。")
         else:
             df_display = df.copy()
+            # 若不慎存在臨時 key 欄位，則先移除
+            if "key" in df_display.columns:
+                df_display = df_display.drop(columns=["key"])
             df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
             st.dataframe(df_display)  # 內建支援表頭排序
 
@@ -175,5 +180,7 @@ else:
         st.info("目前沒有任何商品資料。")
     else:
         df_display = df.copy()
+        if "key" in df_display.columns:
+            df_display = df_display.drop(columns=["key"])
         df_display["FYC"] = df_display["FYC"].apply(lambda x: f"{x}%" if pd.notnull(x) else x)
         st.dataframe(df_display)
