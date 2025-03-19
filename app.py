@@ -1,76 +1,51 @@
-import streamlit as st
 import pandas as pd
-import base64
+import numpy as np
 
-st.title('📊 最佳保險方案試算平台')
+# 定義變數範圍
+companies = ["A公司", "B公司", "C公司"]
+products = ["終身壽險", "定期壽險", "投資型壽險"]
+sex_list = ["男", "女"]
+ages = np.arange(18, 70, 2)  # 18~70歲，間隔2歲
+pay_years_list = [6, 12, 20]  # 繳費年期
+insured_amounts = [50, 100, 200, 500]  # 投保保額 (萬美元)
 
-# **Google Sheets CSV 下載連結**
-gdrive_url = "https://docs.google.com/spreadsheets/d/你的文件ID/export?format=csv"
+# 創建數據列表
+data = []
 
-@st.cache_data
-def load_google_sheets(url):
-    return pd.read_csv(url)
+for company in companies:
+    for product in products:
+        for sex in sex_list:
+            for age in ages:
+                for pay_years in pay_years_list:
+                    for insured_amount in insured_amounts:
+                        base_premium = 1000 + (age * 5) + (pay_years * 20)  # 保費計算公式
+                        annual_premium = base_premium * (insured_amount / 100)
 
-try:
-    # **讀取 Google Sheets 資料**
-    df = load_google_sheets(gdrive_url)
+                        # 解約金（簡單模擬增長）
+                        surrender_values = {
+                            "1年後解約金": annual_premium * 0.2,
+                            "5年後解約金": annual_premium * 1.5,
+                            "10年後解約金": annual_premium * 3,
+                            "20年後解約金": annual_premium * 5,
+                            "30年後解約金": annual_premium * 7
+                        }
 
-    # **使用者輸入**
-    sex = st.selectbox('性別', ['女', '男'])
-    age = st.number_input('年齡', min_value=18, max_value=80, value=40, step=1)
-    pay_years = st.selectbox('繳費年期', [6, 12])
-    insured_amount = st.number_input('投保保額 (萬美元)', min_value=10, value=100, step=10)
+                        data.append([
+                            company, product, sex, age, pay_years, insured_amount,
+                            annual_premium, surrender_values["1年後解約金"], surrender_values["5年後解約金"],
+                            surrender_values["10年後解約金"], surrender_values["20年後解約金"], surrender_values["30年後解約金"]
+                        ])
 
-    # **篩選符合條件的所有方案**
-    filtered_df = df[
-        (df["性別"] == sex) &
-        (df["年齡"] == age) &
-        (df["繳費年期"] == pay_years)
-    ]
+# 轉為 DataFrame
+columns = ["保險公司", "商品名稱", "性別", "年齡", "繳費年期", "投保保額 (萬美元)", "保費",
+           "1年後解約金", "5年後解約金", "10年後解約金", "20年後解約金", "30年後解約金"]
+df = pd.DataFrame(data, columns=columns)
 
-    if not filtered_df.empty:
-        st.subheader('📌 最佳保險方案排序')
-        
-        important_years = [1, 5, 10, 20, 30]
-        data_display = []
+# 匯出 CSV
+csv_filename = "/mnt/data/insurance_products_generated.csv"
+df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
 
-        for _, row in filtered_df.iterrows():
-            product_name = row["商品名稱"]
-            company_name = row["保險公司"]
-            annual_premium = row["保費"] * (insured_amount / row["投保保額 (萬美元)"])
-
-            entry = {
-                '保險公司': company_name,
-                '商品名稱': product_name,
-                '年繳保費': f"${annual_premium:,.0f}"
-            }
-            
-            for year in important_years:
-                entry[f'{year}年後解約金'] = row[f"{year}年後解約金"] * (insured_amount / row["投保保額 (萬美元)"])
-            
-            data_display.append(entry)
-
-        # **依據 30 年後解約金排序，最高排第一**
-        sorted_data = sorted(data_display, key=lambda x: x['30年後解約金'], reverse=True)
-        sorted_df = pd.DataFrame(sorted_data)
-
-        st.table(sorted_df)
-        st.info('⚠️ 試算結果僅供參考，實際數據依保單條款與宣告利率而有所變動')
-
-        # **提供下載 Excel 功能**
-        def convert_df(df):
-            return df.to_csv(index=False).encode('utf-8')
-
-        csv = convert_df(sorted_df)
-        st.download_button(
-            label="📥 下載 Excel 試算結果",
-            data=csv,
-            file_name=f'最佳保險方案試算.csv',
-            mime='text/csv',
-        )
-    else:
-        st.warning("⚠️ 無法找到符合條件的保險方案，請確認輸入條件")
-
-except Exception as e:
-    st.error("❌ 無法讀取 Google Sheets，請檢查權限是否正確！")
-    st.text(str(e))
+# 顯示下載連結
+import ace_tools as tools
+tools.display_dataframe_to_user(name="保險試算數據", dataframe=df)
+print(f"✅ 已生成試算數據，請下載 CSV 檔案並上傳到 Google Sheets：{csv_filename}")
