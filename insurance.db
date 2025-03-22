@@ -1,0 +1,36 @@
+import sqlite3
+
+# 連接數據庫（如果不存在會自動創建）
+conn = sqlite3.connect('insurance.db')
+cursor = conn.cursor()
+
+# 創建表格
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS insurance_products (
+    id INT PRIMARY KEY,
+    insurance_company TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    product_type TEXT NOT NULL,
+    min_age INT,
+    max_age INT,
+    gender TEXT,
+    currency TEXT,
+    term_options TEXT,
+    base_rate FLOAT,
+    coverage_amount INT,
+    product_description TEXT
+);
+''')
+
+# 插入範例數據
+cursor.execute('''
+INSERT INTO insurance_products (id, insurance_company, product_name, product_type, min_age, max_age, gender, currency, term_options, base_rate, coverage_amount, product_description)
+VALUES
+(1, '國泰人壽', '終身壽險A', '壽險', 20, 65, '不限', 'TWD', '10年、20年、終身', 0.01, 1000000, '適合年輕人的終身壽險。'),
+(2, '富邦人壽', '醫療險B', '醫療險', 0, 70, '不限', 'USD', '1年、5年、10年', 0.02, 50000, '提供全面醫療保障。'),
+(3, '南山人壽', '意外險C', '意外險', 18, 60, '不限', 'TWD', '1年、5年', 0.015, 200000, '適合高風險職業的意外險。');
+''')
+
+# 提交並關閉連接
+conn.commit()
+conn.close()
